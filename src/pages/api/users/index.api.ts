@@ -1,5 +1,6 @@
-import { prisma } from '../../../lib/prisma'
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { setCookie } from 'nookies'
+import { prisma } from '../../../lib/prisma'
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,7 +13,17 @@ export default async function handler(
   const { name, username } = req.body
 
   if (!name || !username) {
-    return res.status(400).json({ error: 'Missing body parameter' })
+    return res.status(400).json({ message: 'Missing body parameter' })
+  }
+
+  const userExists = await prisma.user.findUnique({
+    where: {
+      username,
+    },
+  })
+
+  if (userExists) {
+    return res.status(400).json({ message: 'User already exists' })
   }
 
   const user = await prisma.user.create({
@@ -20,6 +31,11 @@ export default async function handler(
       name,
       username,
     },
+  })
+
+  setCookie({ res }, '@ignitecall:userId', user.id, {
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
   })
 
   return res.status(201).json(user)
